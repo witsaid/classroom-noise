@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Classroom Noise Monitor - โดย ครูแซนวิช</title>
+    <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-body: #F0F7F6;
+            --card-white: #FFFFFF;
+            --primary-green: #3EC09E;
+            --danger-red: #FF4757;
+            --danger-dark: #B91C1C;
+            --text-dark: #2D3436;
+            --text-gray: #636E72;
+            --soft-shadow: 0 10px 30px rgba(0,0,0,0.08);
+            --danger-glow: 0 0 30px rgba(255, 71, 87, 0.5);
+        }
+
+        body {
+            font-family: 'Sarabun', sans-serif;
+            background-color: var(--bg-body);
+            margin: 0; padding: 40px 20px;
+            color: var(--text-dark);
+            display: flex; flex-direction: column; align-items: center;
+            min-height: 100vh;
+            transition: all 0.3s ease;
+        }
+
+        /* เอฟเฟกต์หน้าจอแดงเมื่ออันตราย */
+        body.screen-alert {
+            box-shadow: inset 0 0 150px rgba(255, 71, 87, 0.4);
+            background-color: #FFF5F5;
+        }
+
+        /* Header Section */
+        .main-header { text-align: center; margin-bottom: 35px; }
+        .main-header h1 { font-size: 34px; margin: 0; font-weight: 800; color: #1E3D37; letter-spacing: -0.5px; }
+        .main-header p { color: var(--text-gray); margin-top: 5px; font-size: 16px; font-weight: 400; }
+
+        /* Grid Layout */
+        .dashboard-container {
+            display: grid;
+            grid-template-columns: 1fr 1.6fr;
+            gap: 25px;
+            max-width: 1150px; width: 100%;
+        }
+
+        .card {
+            background: var(--card-white);
+            border-radius: 28px;
+            padding: 30px;
+            box-shadow: var(--soft-shadow);
+            display: flex;
+            flex-direction: column;
+            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            border: 1.5px solid rgba(0,0,0,0.03);
+            overflow: hidden;
+        }
+
+        .card-label { 
+            font-size: 16px; font-weight: 700; margin-bottom: 20px; 
+            color: var(--text-gray); display: flex; align-items: center; gap: 8px;
+        }
+
+        /* Gauge Section - แก้ไขข้อความทับกัน */
+        .gauge-container {
+            flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
+            position: relative; padding: 10px 0;
+        }
+        .gauge-svg { width: 240px; height: 120px; }
+        .gauge-bg { fill: none; stroke: #EDF2F7; stroke-width: 16; stroke-linecap: round; }
+        .gauge-progress { 
+            fill: none; stroke: var(--primary-green); stroke-width: 16; 
+            stroke-linecap: round; stroke-dasharray: 282.7; stroke-dashoffset: 282.7; 
+            transition: all 0.5s ease;
+        }
+        .db-readout {
+            text-align: center; margin-top: -30px; /* ขยับขึ้นไปในช่องว่างของครึ่งวงกลม */
+            z-index: 2;
+        }
+        .db-num { font-size: 72px; font-weight: 800; display: block; line-height: 1; color: var(--text-dark); }
+        .db-unit { font-size: 16px; font-weight: 600; color: var(--text-gray); text-transform: uppercase; }
+        
+        .status-badge {
+            margin-top: 20px; padding: 10px 24px; border-radius: 50px;
+            background: #E6F7F4; color: var(--primary-green);
+            font-size: 15px; font-weight: 800; transition: all 0.3s ease;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+        }
+
+        /* Visualizer Section */
+        .visualizer-box {
+            height: 200px; display: flex; align-items: flex-end; justify-content: space-between; gap: 4px;
+            padding: 10px 5px;
+        }
+        .bar { flex: 1; background: var(--primary-green); border-radius: 12px; min-height: 10px; transition: 0.1s; }
+
+        /* Danger Counter - จัดสมดุลใหม่ */
+        .danger-card {
+            border: 3px solid #FFEBEE;
+            background: linear-gradient(180deg, #FFFFFF 0%, #FFF9F9 100%);
+            align-items: center; justify-content: space-between;
+        }
+        .danger-card.active {
+            border-color: var(--danger-red);
+            box-shadow: var(--danger-glow);
+            animation: shake 0.4s infinite;
+        }
+        .danger-icon {
+            width: 85px; height: 85px; background: var(--danger-red);
+            border-radius: 24px; display: flex; align-items: center; justify-content: center;
+            font-size: 44px; color: white; box-shadow: 0 12px 20px rgba(255, 71, 87, 0.3);
+            margin: 10px 0;
+        }
+        .count-wrap { text-align: center; }
+        .count-num { font-size: 84px; font-weight: 900; color: var(--danger-dark); line-height: 1; }
+        .count-unit { font-size: 24px; font-weight: 800; color: var(--danger-dark); margin-left: 5px; }
+
+        /* Controls Section */
+        .control-group { display: flex; flex-direction: column; gap: 12px; }
+        .btn {
+            border: none; padding: 18px; border-radius: 20px;
+            font-family: inherit; font-weight: 700; font-size: 16px;
+            cursor: pointer; transition: 0.2s; display: flex; align-items: center; justify-content: center; gap: 10px;
+        }
+        .btn-main { background: var(--primary-green); color: white; box-shadow: 0 8px 15px rgba(62, 192, 158, 0.25); }
+        .btn-main:active { transform: scale(0.97); }
+        .btn-reset { background: #F1F3F5; color: #636E72; }
+        .slider-wrap {
+            margin-top: 15px; padding: 20px; background: #F8F9FA; border-radius: 20px;
+        }
+        .slider-header { display: flex; justify-content: space-between; font-weight: 700; margin-bottom: 12px; font-size: 14px; }
+        input[type=range] { width: 100%; accent-color: var(--danger-red); cursor: pointer; }
+
+        /* Developer Footer */
+        .dev-tag {
+            margin-top: 50px; padding: 14px 32px;
+            background: white; border-radius: 50px;
+            box-shadow: var(--soft-shadow); font-size: 14px;
+            border: 1px solid rgba(0,0,0,0.03);
+        }
+        .dev-tag strong { color: var(--primary-green); font-weight: 800; }
+
+        @keyframes shake {
+            0% { transform: translate(1px, 1px) rotate(0deg); }
+            20% { transform: translate(-1px, -1px) rotate(-1deg); }
+            40% { transform: translate(-2px, 0px) rotate(1deg); }
+            100% { transform: translate(1px, 1px) rotate(0deg); }
+        }
+
+        @media (max-width: 900px) { .dashboard-container { grid-template-columns: 1fr; } }
+    </style>
+</head>
+<body>
+
+    <div class="main-header">
+        <h1>🎙️ ระบบควบคุมระดับเสียงในห้องเรียน</h1>
+        <p>Dashboard แจ้งเตือนสถานะแบบเรียลไทม์</p>
+    </div>
+
+    <div class="dashboard-container">
+        <div class="card">
+            <span class="card-label">🔊 ระดับเสียงปัจจุบัน</span>
+            <div class="gauge-container">
+                <svg class="gauge-svg" viewBox="0 0 200 100">
+                    <path class="gauge-bg" d="M20,100 A80,80 0 0,1 180,100" />
+                    <path id="gaugeProgress" class="gauge-progress" d="M20,100 A80,80 0 0,1 180,100" />
+                </svg>
+                <div class="db-readout">
+                    <span id="dbValue" class="db-num">0</span>
+                    <span class="db-unit">decibel</span>
+                </div>
+                <div id="statusBadge" class="status-badge">● พร้อมรับฟังเสียง</div>
+            </div>
+        </div>
+
+        <div class="card">
+            <span class="card-label">📊 คลื่นเสียงแบบ Real-time</span>
+            <div class="visualizer-box" id="visualizer"></div>
+        </div>
+
+        <div id="dangerCard" class="card danger-card">
+            <span class="card-label" style="margin-bottom: 5px;">🚨 เขตเฝ้าระวังอันตราย</span>
+            <div class="danger-icon">📢</div>
+            <div class="count-wrap">
+                <span id="countDisplay" class="count-num">0</span>
+                <span class="count-unit">ครั้ง</span>
+            </div>
+            <p style="color: var(--danger-red); font-weight: 800; margin: 10px 0 0 0; font-size: 13px;">
+                บันทึกเมื่อเสียงเกิน <span id="thresholdLabel">70</span> dB
+            </p>
+        </div>
+
+        <div class="card">
+            <span class="card-label">🎛️ แผงควบคุมระบบ</span>
+            <div class="control-group">
+                <button id="mainBtn" class="btn btn-main" onclick="toggleMic()">🎙️ เริ่มทำงานระบบวัดเสียง</button>
+                <button class="btn btn-reset" onclick="resetCounter()">🔄 รีเซ็ตค่าสถิติทั้งหมด</button>
+            </div>
+            <div class="slider-wrap">
+                <div class="slider-header">
+                    <span>ตั้งค่าเกณฑ์ความดัง:</span>
+                    <span id="sliderVal" style="color: var(--danger-red); font-size: 16px;">70 dB</span>
+                </div>
+                <input type="range" id="thresholdSlider" min="40" max="95" value="70">
+            </div>
+        </div>
+    </div>
+
+    <div class="dev-tag">
+        พัฒนาโดย: <strong>คุณครูกิตติพล เทพวาที (ครูแซนวิช)</strong>
+    </div>
+
+    <script>
+        let isRunning = false;
+        let audioCtx, analyser, dataArray;
+        let count = parseInt(localStorage.getItem('noise_count')) || 0;
+        let threshold = 70;
+        let isOver = false;
+
+        // Initialize visualizer bars
+        const viz = document.getElementById('visualizer');
+        for (let i = 0; i < 40; i++) {
+            const b = document.createElement('div');
+            b.className = 'bar';
+            viz.appendChild(b);
+        }
+        document.getElementById('countDisplay').innerText = count;
+
+        const slider = document.getElementById('thresholdSlider');
+        slider.oninput = function() {
+            threshold = this.value;
+            document.getElementById('sliderVal').innerText = threshold + " dB";
+            document.getElementById('thresholdLabel').innerText = threshold;
+        };
+
+        function resetCounter() {
+            if(confirm("ต้องการล้างประวัติการทำเสียงดังทั้งหมดหรือไม่?")) {
+                count = 0;
+                localStorage.setItem('noise_count', 0);
+                document.getElementById('countDisplay').innerText = 0;
+            }
+        }
+
+        async function toggleMic() {
+            if (!isRunning) {
+                try {
+                    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                    analyser = audioCtx.createAnalyser();
+                    const source = audioCtx.createMediaStreamSource(stream);
+                    source.connect(analyser);
+                    analyser.fftSize = 256;
+                    dataArray = new Uint8Array(analyser.frequencyBinCount);
+                    isRunning = true;
+                    document.getElementById('mainBtn').innerText = "🛑 หยุดระบบวัดเสียง";
+                    document.getElementById('mainBtn').style.background = "#4A5568";
+                    update();
+                } catch (e) { alert("กรุณาอนุญาตการเข้าถึงไมโครโฟน"); }
+            } else { location.reload(); }
+        }
+
+        function update() {
+            if (!isRunning) return;
+            analyser.getByteFrequencyData(dataArray);
+            let sum = 0;
+            for(let i=0; i<dataArray.length; i++) sum += dataArray[i];
+            let db = Math.round((sum / dataArray.length) * 1.3); // ปรับแต่งสูตรการวัด
+            if (db > 100) db = 100;
+
+            document.getElementById('dbValue').innerText = db;
+            const prog = document.getElementById('gaugeProgress');
+            prog.style.strokeDashoffset = 282.7 - (db / 100 * 282.7);
+
+            const dangerCard = document.getElementById('dangerCard');
+            const badge = document.getElementById('statusBadge');
+
+            if (db > threshold) {
+                dangerCard.classList.add('active');
+                document.body.classList.add('screen-alert');
+                prog.style.stroke = "var(--danger-red)";
+                badge.innerText = "🚨 เสียงเกินเกณฑ์!";
+                badge.style.background = "var(--danger-red)";
+                badge.style.color = "white";
+
+                if (!isOver) {
+                    count++;
+                    localStorage.setItem('noise_count', count);
+                    document.getElementById('countDisplay').innerText = count;
+                    isOver = true;
+                }
+            } else {
+                dangerCard.classList.remove('active');
+                document.body.classList.remove('screen-alert');
+                prog.style.stroke = "var(--primary-green)";
+                badge.innerText = "🟢 ระดับเสียงปกติ";
+                badge.style.background = "#E6F7F4";
+                badge.style.color = "var(--primary-green)";
+                isOver = false;
+            }
+
+            const bars = document.getElementsByClassName('bar');
+            for (let i = 0; i < bars.length; i++) {
+                let h = (dataArray[i] || 0) / 255 * 200;
+                bars[i].style.height = Math.max(10, h) + "px";
+                bars[i].style.background = db > threshold ? "var(--danger-red)" : "var(--primary-green)";
+            }
+            requestAnimationFrame(update);
+        }
+    </script>
+</body>
+</html>
